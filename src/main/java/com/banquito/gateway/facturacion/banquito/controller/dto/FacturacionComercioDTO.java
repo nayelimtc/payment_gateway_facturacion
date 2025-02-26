@@ -9,6 +9,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class FacturacionComercioDTO {
+    private String id;
+    
     private String codFacturacionComercio;
 
     @NotBlank(message = "El código de comercio es requerido")

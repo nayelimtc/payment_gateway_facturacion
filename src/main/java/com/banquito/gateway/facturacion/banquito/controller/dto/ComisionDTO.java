@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class ComisionDTO {
+    private String id;
+    
     private String codComision;
 
     @NotBlank(message = "El tipo es requerido")
