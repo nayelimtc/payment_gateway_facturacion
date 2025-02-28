@@ -3,17 +3,10 @@ package com.banquito.gateway.facturacion.banquito.controller;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.banquito.gateway.facturacion.banquito.controller.dto.FacturacionComercioDTO;
 import com.banquito.gateway.facturacion.banquito.controller.mapper.FacturacionComercioMapper;
@@ -21,136 +14,145 @@ import com.banquito.gateway.facturacion.banquito.service.FacturacionComercioServ
 import com.banquito.gateway.facturacion.banquito.service.exception.CreateException;
 import com.banquito.gateway.facturacion.banquito.service.exception.NotFoundException;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/v1/facturaciones")
 @RequiredArgsConstructor
-@Slf4j
+@Tag(name = "Facturaciones", description = "API para gestión de facturaciones de comercios en el payment gateway")
 public class FacturacionComercioController {
 
     private final FacturacionComercioService facturacionService;
     private final FacturacionComercioMapper facturacionMapper;
 
     @GetMapping
+    @Operation(summary = "Listar todas las facturaciones", description = "Obtiene la lista completa de facturaciones de comisiones a comercios")
     public ResponseEntity<List<FacturacionComercioDTO>> obtenerFacturaciones() {
-        log.info("Obteniendo todas las facturaciones");
         return ResponseEntity.ok(
-            this.facturacionService.findAll().stream()
-                .map(facturacionMapper::toDTO)
-                .toList()
-        );
+                this.facturacionService.findAll().stream()
+                        .map(facturacionMapper::toDTO)
+                        .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<FacturacionComercioDTO> obtenerFacturacion(@PathVariable("id") String id) {
-        log.info("Obteniendo facturación con ID: {}", id);
+    @Operation(summary = "Buscar facturación por ID", description = "Obtiene una facturación específica por su ID para consultar el detalle del cobro")
+    public ResponseEntity<FacturacionComercioDTO> obtenerFacturacion(
+            @Parameter(description = "ID de la facturación", required = true) @PathVariable("id") String id) {
         try {
             return ResponseEntity.ok(
-                this.facturacionMapper.toDTO(
-                    this.facturacionService.findById(id)
-                )
-            );
+                    this.facturacionMapper.toDTO(
+                            this.facturacionService.findById(id)));
         } catch (NotFoundException e) {
-            log.warn("No se encontró la facturación con ID: {}", id);
-            return ResponseEntity.notFound().build();
-        }
-    }
-    
-    @GetMapping("/codigo/{codFacturacionComercio}")
-    public ResponseEntity<FacturacionComercioDTO> obtenerFacturacionPorCodigo(
-            @PathVariable("codFacturacionComercio") String codFacturacionComercio) {
-        log.info("Obteniendo facturación con código: {}", codFacturacionComercio);
-        try {
-            return ResponseEntity.ok(
-                this.facturacionMapper.toDTO(
-                    this.facturacionService.findByCodFacturacionComercio(codFacturacionComercio)
-                )
-            );
-        } catch (NotFoundException e) {
-            log.warn("No se encontró la facturación con código: {}", codFacturacionComercio);
             return ResponseEntity.notFound().build();
         }
     }
 
     @GetMapping("/comercio/{codComercio}")
+    @Operation(summary = "Buscar facturaciones por comercio", description = "Obtiene el historial de facturaciones de un comercio específico")
     public ResponseEntity<List<FacturacionComercioDTO>> obtenerFacturacionesPorComercio(
-            @PathVariable("codComercio") String codComercio) {
-        log.info("Obteniendo facturaciones por código de comercio: {}", codComercio);
+            @Parameter(description = "Código del comercio afiliado", required = true) @PathVariable("codComercio") String codComercio,
+            @Parameter(description = "Campo por el cual ordenar (fechaInicio, fechaFin, valor, etc)") @RequestParam(name = "orderBy", defaultValue = "fechaInicio") String orderBy,
+            @Parameter(description = "Dirección del ordenamiento (ASC o DESC)") @RequestParam(name = "direction", defaultValue = "DESC") Direction direction) {
         return ResponseEntity.ok(
-            this.facturacionService.findByComercio(codComercio).stream()
-                .map(facturacionMapper::toDTO)
-                .toList()
-        );
+                this.facturacionService.findByComercio(codComercio, orderBy, direction).stream()
+                        .map(facturacionMapper::toDTO)
+                        .toList());
+    }
+
+    @GetMapping("/comercio/{codComercio}/estado/{estado}")
+    @Operation(summary = "Buscar facturaciones por comercio y estado", description = "Obtiene las facturaciones de un comercio filtradas por estado (PEN: Pendiente, PAG: Pagado, ANU: Anulado)")
+    public ResponseEntity<List<FacturacionComercioDTO>> obtenerFacturacionesPorComercioYEstado(
+            @Parameter(description = "Código del comercio afiliado", required = true) @PathVariable("codComercio") String codComercio,
+            @Parameter(description = "Estado de la facturación (PEN: Pendiente, PAG: Pagado, ANU: Anulado)", required = true) @PathVariable("estado") String estado,
+            @Parameter(description = "Campo por el cual ordenar (fechaInicio, fechaFin, valor, etc)") @RequestParam(name = "orderBy", defaultValue = "fechaInicio") String orderBy,
+            @Parameter(description = "Dirección del ordenamiento (ASC o DESC)") @RequestParam(name = "direction", defaultValue = "DESC") Direction direction) {
+        return ResponseEntity.ok(
+                this.facturacionService.findByComercioAndEstado(codComercio, estado, orderBy, direction).stream()
+                        .map(facturacionMapper::toDTO)
+                        .toList());
     }
 
     @GetMapping("/fechas")
+    @Operation(summary = "Buscar facturaciones por rango de fechas", description = "Obtiene las facturaciones generadas dentro de un período específico")
     public ResponseEntity<List<FacturacionComercioDTO>> obtenerFacturacionesPorFechas(
-            @RequestParam("fechaInicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam("fechaFin") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
-        log.info("Obteniendo facturaciones entre fechas: {} y {}", fechaInicio, fechaFin);
+            @Parameter(description = "Fecha de inicio del período (YYYY-MM-DD)", required = true) @RequestParam("fechaInicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @Parameter(description = "Fecha fin del período (YYYY-MM-DD)", required = true) @RequestParam("fechaFin") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
+            @Parameter(description = "Campo por el cual ordenar (fechaInicio, fechaFin, valor, etc)") @RequestParam(name = "orderBy", defaultValue = "fechaInicio") String orderBy,
+            @Parameter(description = "Dirección del ordenamiento (ASC o DESC)") @RequestParam(name = "direction", defaultValue = "DESC") Direction direction) {
         return ResponseEntity.ok(
-            this.facturacionService.findByFechas(fechaInicio, fechaFin).stream()
-                .map(facturacionMapper::toDTO)
-                .toList()
-        );
+                this.facturacionService.findByFechas(fechaInicio, fechaFin, orderBy, direction).stream()
+                        .map(facturacionMapper::toDTO)
+                        .toList());
+    }
+
+    @GetMapping("/comercio/{codComercio}/fechas")
+    @Operation(summary = "Buscar facturaciones por comercio y fechas", description = "Obtiene el historial de facturaciones de un comercio dentro de un período específico")
+    public ResponseEntity<List<FacturacionComercioDTO>> obtenerFacturacionesPorComercioYFechas(
+            @Parameter(description = "Código del comercio afiliado", required = true) @PathVariable("codComercio") String codComercio,
+            @Parameter(description = "Fecha de inicio del período (YYYY-MM-DD)", required = true) @RequestParam("fechaInicio") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @Parameter(description = "Fecha fin del período (YYYY-MM-DD)", required = true) @RequestParam("fechaFin") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
+            @Parameter(description = "Campo por el cual ordenar (fechaInicio, fechaFin, valor, etc)") @RequestParam(name = "orderBy", defaultValue = "fechaInicio") String orderBy,
+            @Parameter(description = "Dirección del ordenamiento (ASC o DESC)") @RequestParam(name = "direction", defaultValue = "DESC") Direction direction) {
+        return ResponseEntity.ok(
+                this.facturacionService.findByComercioAndFechas(codComercio, fechaInicio, fechaFin, orderBy, direction)
+                        .stream()
+                        .map(facturacionMapper::toDTO)
+                        .toList());
     }
 
     @GetMapping("/estado/{estado}")
+    @Operation(summary = "Buscar facturaciones por estado", description = "Obtiene las facturaciones filtradas por estado (PEN: Pendiente, PAG: Pagado, ANU: Anulado)")
     public ResponseEntity<List<FacturacionComercioDTO>> obtenerFacturacionesPorEstado(
-            @PathVariable("estado") String estado) {
-        log.info("Obteniendo facturaciones por estado: {}", estado);
+            @Parameter(description = "Estado de la facturación (PEN: Pendiente, PAG: Pagado, ANU: Anulado)", required = true) @PathVariable("estado") String estado,
+            @Parameter(description = "Campo por el cual ordenar (fechaInicio, fechaFin, valor, etc)") @RequestParam(name = "orderBy", defaultValue = "fechaInicio") String orderBy,
+            @Parameter(description = "Dirección del ordenamiento (ASC o DESC)") @RequestParam(name = "direction", defaultValue = "DESC") Direction direction) {
         return ResponseEntity.ok(
-            this.facturacionService.findByEstado(estado).stream()
-                .map(facturacionMapper::toDTO)
-                .toList()
-        );
+                this.facturacionService.findByEstado(estado, orderBy, direction).stream()
+                        .map(facturacionMapper::toDTO)
+                        .toList());
     }
 
     @PostMapping
+    @Operation(summary = "Crear facturación", description = "Genera una nueva facturación de comisiones para un comercio, calculando automáticamente el valor según la configuración de comisión")
     public ResponseEntity<FacturacionComercioDTO> crearFacturacion(
-            @Valid @RequestBody FacturacionComercioDTO facturacionDTO) {
-        log.info("Creando nueva facturación");
+            @Parameter(description = "Datos de la facturación a generar", required = true) @Valid @RequestBody FacturacionComercioDTO facturacionDTO) {
         try {
             return ResponseEntity.ok(
-                this.facturacionMapper.toDTO(
-                    this.facturacionService.create(
-                        this.facturacionMapper.toModel(facturacionDTO)
-                    )
-                )
-            );
+                    this.facturacionMapper.toDTO(
+                            this.facturacionService.create(
+                                    this.facturacionMapper.toModel(facturacionDTO))));
         } catch (CreateException e) {
-            log.error("Error al crear facturación: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Void> actualizarFacturacion(@PathVariable("id") String id,
-            @Valid @RequestBody FacturacionComercioDTO facturacionDTO) {
-        log.info("Actualizando facturación con ID: {}", id);
+    @Operation(summary = "Actualizar facturación", description = "Actualiza el estado o información de una facturación existente (ej: marcar como pagada)")
+    public ResponseEntity<Void> actualizarFacturacion(
+            @Parameter(description = "ID de la facturación", required = true) @PathVariable("id") String id,
+            @Parameter(description = "Datos actualizados de la facturación", required = true) @Valid @RequestBody FacturacionComercioDTO facturacionDTO) {
         try {
-            facturacionDTO.setId(id);
+            facturacionDTO.setCodFacturacionComercio(id);
             this.facturacionService.update(
-                this.facturacionMapper.toModel(facturacionDTO)
-            );
+                    this.facturacionMapper.toModel(facturacionDTO));
             return ResponseEntity.ok().build();
         } catch (CreateException e) {
-            log.error("Error al actualizar facturación: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarFacturacion(@PathVariable("id") String id) {
-        log.info("Eliminando facturación con ID: {}", id);
+    @Operation(summary = "Eliminar facturación", description = "Elimina una facturación existente (solo permitido para facturaciones en estado PEN)")
+    public ResponseEntity<Void> eliminarFacturacion(
+            @Parameter(description = "ID de la facturación", required = true) @PathVariable("id") String id) {
         try {
             this.facturacionService.delete(id);
             return ResponseEntity.ok().build();
         } catch (CreateException e) {
-            log.error("Error al eliminar facturación: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }

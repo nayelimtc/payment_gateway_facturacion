@@ -2,6 +2,7 @@ package com.banquito.gateway.facturacion.banquito.controller.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import org.bson.types.ObjectId;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,8 +10,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class FacturacionComercioDTO {
-    private String id;
-    
+    private ObjectId id;
     private String codFacturacionComercio;
 
     @NotBlank(message = "El código de comercio es requerido")
