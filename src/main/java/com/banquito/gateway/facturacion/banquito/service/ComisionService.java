@@ -2,8 +2,8 @@ package com.banquito.gateway.facturacion.banquito.service;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
+import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,9 +27,17 @@ public class ComisionService {
         return this.comisionRepository.findAll();
     }
 
+    public List<Comision> findByTipo(String tipo) {
+        log.debug("Buscando comisiones por tipo: {}", tipo);
+        if (!tipo.equals("POR") && !tipo.equals("FIJ")) {
+            throw new CreateException("Comisión", "Tipo de comisión no válido: " + tipo);
+        }
+        return this.comisionRepository.findByTipo(tipo);
+    }
+
     public Comision findById(String id) {
         log.debug("Buscando comisión por ID: {}", id);
-        Optional<Comision> comisionOpt = this.comisionRepository.findById(id);
+        Optional<Comision> comisionOpt = this.comisionRepository.findById(new ObjectId(id));
         if (comisionOpt.isPresent()) {
             return comisionOpt.get();
         } else {
@@ -50,13 +58,11 @@ public class ComisionService {
     @Transactional
     public Comision create(Comision comision) {
         try {
-            log.debug("Creando nueva comisión");
-            if (comision.getCodComision() == null) {
-                comision.setCodComision(UUID.randomUUID().toString().substring(0, 10));
-            }
+            log.debug("Creando nueva comisión: {}", comision);
+            comision.prePersist();
             return this.comisionRepository.save(comision);
         } catch (Exception e) {
-            log.error("Error al crear comisión: {}", e.getMessage());
+            log.error("Error al crear comisión", e);
             throw new CreateException("Comisión", "Error al crear la comisión: " + e.getMessage());
         }
     }
@@ -64,10 +70,10 @@ public class ComisionService {
     @Transactional
     public void update(Comision comision) {
         try {
-            log.debug("Actualizando comisión con ID: {}", comision.getId());
+            log.debug("Actualizando comisión: {}", comision);
             this.comisionRepository.save(comision);
         } catch (Exception e) {
-            log.error("Error al actualizar comisión: {}", e.getMessage());
+            log.error("Error al actualizar comisión", e);
             throw new CreateException("Comisión", "Error al actualizar la comisión: " + e.getMessage());
         }
     }
@@ -76,9 +82,9 @@ public class ComisionService {
     public void delete(String id) {
         try {
             log.debug("Eliminando comisión con ID: {}", id);
-            this.comisionRepository.deleteById(id);
+            this.comisionRepository.deleteById(new ObjectId(id));
         } catch (Exception e) {
-            log.error("Error al eliminar comisión: {}", e.getMessage());
+            log.error("Error al eliminar comisión", e);
             throw new CreateException("Comisión", "Error al eliminar la comisión: " + e.getMessage());
         }
     }

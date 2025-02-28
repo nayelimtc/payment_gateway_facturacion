@@ -1,10 +1,13 @@
 package com.banquito.gateway.facturacion.banquito.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
+import org.bson.types.ObjectId;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +23,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class FacturacionComercioService {
-    
+
     private final FacturacionComercioRepository facturacionComercioRepository;
+    private final CalculadoraComisionService calculadoraComisionService;
 
     public List<FacturacionComercio> findAll() {
         log.debug("Obteniendo todas las facturaciones");
@@ -30,51 +34,80 @@ public class FacturacionComercioService {
 
     public FacturacionComercio findById(String id) {
         log.debug("Buscando facturación por ID: {}", id);
-        Optional<FacturacionComercio> facturacionOpt = this.facturacionComercioRepository.findById(id);
+        Optional<FacturacionComercio> facturacionOpt = this.facturacionComercioRepository.findById(new ObjectId(id));
         if (facturacionOpt.isPresent()) {
             return facturacionOpt.get();
         } else {
             throw new NotFoundException("Facturación Comercio", "id: " + id);
         }
     }
-    
-    public FacturacionComercio findByCodFacturacionComercio(String codFacturacionComercio) {
-        log.debug("Buscando facturación por código: {}", codFacturacionComercio);
-        Optional<FacturacionComercio> facturacionOpt = this.facturacionComercioRepository.findByCodFacturacionComercio(codFacturacionComercio);
-        if (facturacionOpt.isPresent()) {
-            return facturacionOpt.get();
-        } else {
-            throw new NotFoundException("Facturación Comercio", "código: " + codFacturacionComercio);
-        }
+
+    public List<FacturacionComercio> findByComercio(String codComercio, String orderBy, Direction direction) {
+        log.debug("Buscando facturaciones por código de comercio: {} ordenado por: {} {}", 
+            codComercio, orderBy, direction);
+        return this.facturacionComercioRepository.findByCodComercio(
+            codComercio, 
+            Sort.by(direction, orderBy));
     }
 
-    public List<FacturacionComercio> findByComercio(String codComercio) {
-        log.debug("Buscando facturaciones por código de comercio: {}", codComercio);
-        return this.facturacionComercioRepository.findByCodComercio(codComercio);
+    public List<FacturacionComercio> findByComercioAndEstado(String codComercio, String estado, 
+            String orderBy, Direction direction) {
+        log.debug("Buscando facturaciones por código de comercio: {} y estado: {} ordenado por: {} {}", 
+            codComercio, estado, orderBy, direction);
+        return this.facturacionComercioRepository.findByCodComercioAndEstado(
+            codComercio, 
+            estado,
+            Sort.by(direction, orderBy));
     }
 
-    public List<FacturacionComercio> findByFechas(LocalDate fechaInicio, LocalDate fechaFin) {
-        log.debug("Buscando facturaciones entre fechas: {} y {}", fechaInicio, fechaFin);
-        return this.facturacionComercioRepository.findByFechaInicioBetween(fechaInicio, fechaFin);
+    public List<FacturacionComercio> findByFechas(LocalDate fechaInicio, LocalDate fechaFin, 
+            String orderBy, Direction direction) {
+        log.debug("Buscando facturaciones entre fechas: {} - {} ordenado por: {} {}", 
+            fechaInicio, fechaFin, orderBy, direction);
+        return this.facturacionComercioRepository.findByFechaInicioBetween(
+            fechaInicio, 
+            fechaFin,
+            Sort.by(direction, orderBy));
     }
 
-    public List<FacturacionComercio> findByEstado(String estado) {
-        log.debug("Buscando facturaciones por estado: {}", estado);
-        return this.facturacionComercioRepository.findByEstado(estado);
+    public List<FacturacionComercio> findByComercioAndFechas(String codComercio, 
+            LocalDate fechaInicio, LocalDate fechaFin, String orderBy, Direction direction) {
+        log.debug("Buscando facturaciones por comercio: {} entre fechas: {} - {} ordenado por: {} {}", 
+            codComercio, fechaInicio, fechaFin, orderBy, direction);
+        return this.facturacionComercioRepository.findByCodComercioAndFechaInicioBetween(
+            codComercio,
+            fechaInicio, 
+            fechaFin,
+            Sort.by(direction, orderBy));
+    }
+
+    public List<FacturacionComercio> findByEstado(String estado, String orderBy, Direction direction) {
+        log.debug("Buscando facturaciones por estado: {} ordenado por: {} {}", 
+            estado, orderBy, direction);
+        return this.facturacionComercioRepository.findByEstado(
+            estado,
+            Sort.by(direction, orderBy));
     }
 
     @Transactional
     public FacturacionComercio create(FacturacionComercio facturacion) {
         try {
-            log.debug("Creando nueva facturación");
-            if (facturacion.getCodFacturacionComercio() == null) {
-                facturacion.setCodFacturacionComercio(UUID.randomUUID().toString().substring(0, 10));
-            }
+            log.debug("Creando nueva facturación: {}", facturacion);
+            facturacion.prePersist();
             facturacion.setEstado("PEN");
             facturacion.setFechaFacturacion(LocalDate.now());
+            
+            // Calculamos la comisión
+            BigDecimal comision = this.calculadoraComisionService.calcularComision(
+                facturacion.getCodComision(),
+                facturacion.getTransaccionesProcesadas(),
+                facturacion.getValor()
+            );
+            facturacion.setValor(comision);
+            
             return this.facturacionComercioRepository.save(facturacion);
         } catch (Exception e) {
-            log.error("Error al crear facturación: {}", e.getMessage());
+            log.error("Error al crear facturación", e);
             throw new CreateException("Facturación Comercio", "Error al crear la facturación: " + e.getMessage());
         }
     }
@@ -82,13 +115,13 @@ public class FacturacionComercioService {
     @Transactional
     public void update(FacturacionComercio facturacion) {
         try {
-            log.debug("Actualizando facturación con ID: {}", facturacion.getId());
+            log.debug("Actualizando facturación: {}", facturacion);
             if ("PAG".equals(facturacion.getEstado())) {
                 facturacion.setFechaPago(LocalDate.now());
             }
             this.facturacionComercioRepository.save(facturacion);
         } catch (Exception e) {
-            log.error("Error al actualizar facturación: {}", e.getMessage());
+            log.error("Error al actualizar facturación", e);
             throw new CreateException("Facturación Comercio", "Error al actualizar la facturación: " + e.getMessage());
         }
     }
@@ -97,9 +130,9 @@ public class FacturacionComercioService {
     public void delete(String id) {
         try {
             log.debug("Eliminando facturación con ID: {}", id);
-            this.facturacionComercioRepository.deleteById(id);
+            this.facturacionComercioRepository.deleteById(new ObjectId(id));
         } catch (Exception e) {
-            log.error("Error al eliminar facturación: {}", e.getMessage());
+            log.error("Error al eliminar facturación", e);
             throw new CreateException("Facturación Comercio", "Error al eliminar la facturación: " + e.getMessage());
         }
     }
