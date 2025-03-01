@@ -35,6 +35,11 @@ public class ComisionService {
         return this.comisionRepository.findByTipo(tipo);
     }
 
+    public List<Comision> findByManejaSegmentos(Boolean manejaSegmentos) {
+        log.debug("Buscando comisiones por manejo de segmentos: {}", manejaSegmentos);
+        return this.comisionRepository.findByManejaSegmentos(manejaSegmentos);
+    }
+
     public Comision findById(String id) {
         log.debug("Buscando comisión por ID: {}", id);
         Optional<Comision> comisionOpt = this.comisionRepository.findById(new ObjectId(id));
