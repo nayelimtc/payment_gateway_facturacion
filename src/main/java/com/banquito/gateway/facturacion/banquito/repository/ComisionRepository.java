@@ -14,6 +14,4 @@ public interface ComisionRepository extends MongoRepository<Comision, ObjectId> 
     Optional<Comision> findByCodComision(String codComision);
 
     List<Comision> findByTipo(String tipo);
-
-    List<Comision> findByManejaSegmentos(Boolean manejaSegmentos);
 }
