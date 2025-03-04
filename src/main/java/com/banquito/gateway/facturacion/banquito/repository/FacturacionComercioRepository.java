@@ -15,6 +15,7 @@ public interface FacturacionComercioRepository extends MongoRepository<Facturaci
     List<FacturacionComercio> findByCodComercio(String codComercio, Sort sort);
     List<FacturacionComercio> findByCodComercioAndEstado(String codComercio, String estado, Sort sort);
     List<FacturacionComercio> findByFechaInicioBetween(LocalDate fechaInicio, LocalDate fechaFin, Sort sort);
+    List<FacturacionComercio> findByFechaInicio(LocalDate fechaInicio, Sort sort);
     List<FacturacionComercio> findByEstado(String estado, Sort sort);
     List<FacturacionComercio> findByCodComercioAndFechaInicioBetween(String codComercio, LocalDate fechaInicio, LocalDate fechaFin, Sort sort);
 }

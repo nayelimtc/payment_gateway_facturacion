@@ -43,50 +43,63 @@ public class FacturacionComercioService {
     }
 
     public List<FacturacionComercio> findByComercio(String codComercio, String orderBy, Direction direction) {
-        log.debug("Buscando facturaciones por código de comercio: {} ordenado por: {} {}", 
-            codComercio, orderBy, direction);
+        log.debug("Buscando facturaciones por código de comercio: {} ordenado por: {} {}",
+                codComercio, orderBy, direction);
         return this.facturacionComercioRepository.findByCodComercio(
-            codComercio, 
-            Sort.by(direction, orderBy));
+                codComercio,
+                Sort.by(direction, orderBy));
     }
 
-    public List<FacturacionComercio> findByComercioAndEstado(String codComercio, String estado, 
+    public List<FacturacionComercio> findByComercioAndEstado(String codComercio, String estado,
             String orderBy, Direction direction) {
-        log.debug("Buscando facturaciones por código de comercio: {} y estado: {} ordenado por: {} {}", 
-            codComercio, estado, orderBy, direction);
+        log.debug("Buscando facturaciones por código de comercio: {} y estado: {} ordenado por: {} {}",
+                codComercio, estado, orderBy, direction);
         return this.facturacionComercioRepository.findByCodComercioAndEstado(
-            codComercio, 
-            estado,
-            Sort.by(direction, orderBy));
+                codComercio,
+                estado,
+                Sort.by(direction, orderBy));
     }
 
-    public List<FacturacionComercio> findByFechas(LocalDate fechaInicio, LocalDate fechaFin, 
+    public List<FacturacionComercio> findByFechas(LocalDate fechaInicio, LocalDate fechaFin,
             String orderBy, Direction direction) {
-        log.debug("Buscando facturaciones entre fechas: {} - {} ordenado por: {} {}", 
-            fechaInicio, fechaFin, orderBy, direction);
+        log.debug("Buscando facturaciones entre fechas: {} - {} ordenado por: {} {}",
+                fechaInicio, fechaFin, orderBy, direction);
+
+        // Validar que las fechas no sean nulas
+        if (fechaInicio == null || fechaFin == null) {
+            throw new CreateException("Facturación Comercio", "Las fechas de inicio y fin son requeridas");
+        }
+
+        // Validar que la fecha de inicio no sea posterior a la fecha fin
+        if (fechaInicio.isAfter(fechaFin)) {
+            throw new CreateException("Facturación Comercio",
+                    "La fecha de inicio no puede ser posterior a la fecha fin");
+        }
+
+        log.info("Buscando facturaciones con fechaInicio entre {} y {}", fechaInicio, fechaFin);
         return this.facturacionComercioRepository.findByFechaInicioBetween(
-            fechaInicio, 
-            fechaFin,
-            Sort.by(direction, orderBy));
+                fechaInicio,
+                fechaFin,
+                Sort.by(direction, orderBy));
     }
 
-    public List<FacturacionComercio> findByComercioAndFechas(String codComercio, 
+    public List<FacturacionComercio> findByComercioAndFechas(String codComercio,
             LocalDate fechaInicio, LocalDate fechaFin, String orderBy, Direction direction) {
-        log.debug("Buscando facturaciones por comercio: {} entre fechas: {} - {} ordenado por: {} {}", 
-            codComercio, fechaInicio, fechaFin, orderBy, direction);
+        log.debug("Buscando facturaciones por comercio: {} entre fechas: {} - {} ordenado por: {} {}",
+                codComercio, fechaInicio, fechaFin, orderBy, direction);
         return this.facturacionComercioRepository.findByCodComercioAndFechaInicioBetween(
-            codComercio,
-            fechaInicio, 
-            fechaFin,
-            Sort.by(direction, orderBy));
+                codComercio,
+                fechaInicio,
+                fechaFin,
+                Sort.by(direction, orderBy));
     }
 
     public List<FacturacionComercio> findByEstado(String estado, String orderBy, Direction direction) {
-        log.debug("Buscando facturaciones por estado: {} ordenado por: {} {}", 
-            estado, orderBy, direction);
+        log.debug("Buscando facturaciones por estado: {} ordenado por: {} {}",
+                estado, orderBy, direction);
         return this.facturacionComercioRepository.findByEstado(
-            estado,
-            Sort.by(direction, orderBy));
+                estado,
+                Sort.by(direction, orderBy));
     }
 
     @Transactional
@@ -94,17 +107,31 @@ public class FacturacionComercioService {
         try {
             log.debug("Creando nueva facturación: {}", facturacion);
             facturacion.prePersist();
-            facturacion.setEstado("PEN");
+
+            // Si no viene estado, establecer PEN por defecto
+            if (facturacion.getEstado() == null) {
+                facturacion.setEstado("PEN");
+            }
+
+            // Validar que el estado sea válido
+            if (!facturacion.getEstado().matches("PEN|PAG|ANU")) {
+                throw new CreateException("Facturación Comercio", "Estado no válido: " + facturacion.getEstado());
+            }
+
             facturacion.setFechaFacturacion(LocalDate.now());
-            
+
+            // Si el estado es PAG, establecer la fecha de pago
+            if ("PAG".equals(facturacion.getEstado())) {
+                facturacion.setFechaPago(LocalDate.now());
+            }
+
             // Calculamos la comisión
             BigDecimal comision = this.calculadoraComisionService.calcularComision(
-                facturacion.getCodComision(),
-                facturacion.getTransaccionesProcesadas(),
-                facturacion.getValor()
-            );
+                    facturacion.getCodComision(),
+                    facturacion.getTransaccionesProcesadas(),
+                    facturacion.getValor());
             facturacion.setValor(comision);
-            
+
             return this.facturacionComercioRepository.save(facturacion);
         } catch (Exception e) {
             log.error("Error al crear facturación", e);
