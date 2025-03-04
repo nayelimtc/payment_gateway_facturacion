@@ -2,8 +2,6 @@ package com.banquito.gateway.facturacion.banquito.controller.dto;
 
 import java.math.BigDecimal;
 
-import org.bson.types.ObjectId;
-
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -17,7 +15,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class ComisionDTO {
-    private ObjectId id;
+    private String id;
     
     @Size(max = 10, message = "El código de comisión no puede exceder los 10 caracteres")
     private String codComision;
